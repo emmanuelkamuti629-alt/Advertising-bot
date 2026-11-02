@@ -1,0 +1,9 @@
+AT_USERNAME=your_username
+AT_API_KEY=your_api_key
+AT_SENDER_ID=your_registered_sender_id
+
+WA_PHONE_NUMBER_ID=your_phone_number_id
+WA_ACCESS_TOKEN=your_permanent_token
+WA_VERIFY_TOKEN=any_random_string_you_choose
+
+WASSENGER_API_TOKEN=your_wassenger_token
