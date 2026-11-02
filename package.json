@@ -1,0 +1,15 @@
+{
+  "name": "kenya-sms-whatsapp-sender",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "dotenv": "^16.4.5",
+    "axios": "^1.7.0",
+    "africastalking": "^0.7.0",
+    "whatsapp-number-verify": "^1.0.1"
+  }
+}
