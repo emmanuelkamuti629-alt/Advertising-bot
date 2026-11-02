@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kenya SMS + WhatsApp Admin</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f0f2f5; padding: 20px; }
+    .container { max-width: 1100px; margin: 0 auto; }
+    .card { background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    h1 { margin-bottom: 20px; color: #1a1a1a; font-size: 22px; }
+    h2 { margin-bottom: 12px; font-size: 16px; color: #333; }
+    textarea, input[type="text"] {
+      width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;
+      font-family: inherit; font-size: 14px; margin-bottom: 10px; resize: vertical;
+    }
+    textarea { min-height: 90px; }
+    button {
+      padding: 10px 22px; border: none; border-radius: 6px; cursor: pointer;
+      font-size: 14px; font-weight: 500; color: #fff; margin-right: 8px; margin-bottom: 6px;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-sms { background: #007bff; }
+    .btn-sms:hover:not(:disabled) { background: #0069d9; }
+    .btn-wa { background: #25D366; }
+    .btn-wa:hover:not(:disabled) { background: #1da851; }
+    .btn-check { background: #6c757d; }
+    .btn-check:hover:not(:disabled) { background: #5a6268; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #eee; }
+    th { background: #f8f9fa; font-weight: 600; color: #555; }
+    .status-sent { color: #28a745; font-weight: 500; }
+    .status-delivered { color: #17a2b8; font-weight: 500; }
+    .status-read { color: #007bff; font-weight: 500; }
+    .status-accepted { color: #6c757d; }
+    .status-failed { color: #dc3545; font-weight: 500; }
+    .hint { font-size: 12px; color: #888; margin-bottom: 8px; line-height: 1.5; }
+    .empty { text-align: center; color: #aaa; padding: 20px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+    .badge-sms { background: #e7f1ff; color: #007bff; }
+    .badge-wa { background: #d4f5e0; color: #128c7e; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>🇰🇪 Kenya SMS + WhatsApp Admin</h1>
+
+  <div class="card">
+    <h2>📋 Recipients & Message</h2>
+    <p class="hint">Enter one phone number per line, with country code (e.g., +254712345678).</p>
+    <textarea id="phones" placeholder="+254712345678&#10;+254798765432"></textarea>
+
+    <p class="hint">Message content (the same content will be sent to the selected channel).</p>
+    <textarea id="message" placeholder="Type your advertisement message here..."></textarea>
+
+    <div style="margin-top: 8px;">
+      <button class="btn-sms" onclick="sendSms()">📱 Send SMS</button>
+      <button class="btn-wa" onclick="sendWhatsApp()">💬 Send WhatsApp</button>
+      <button class="btn-check" onclick="checkWhatsApp()">🔍 Check WhatsApp Numbers</button>
+    </div>
+    <p class="hint" style="margin-top: 8px;">
+      ⚠️ WhatsApp free-text messages can only be sent within 24 hours after the user initiates a conversation; proactive outreach requires pre-approved template messages.
+      SMS marketing requires recipient consent, otherwise it violates Kenya's Data Protection Act.
+    </p>
+  </div>
+
+  <div class="card" id="checkCard" style="display:none;">
+    <h2>🔍 WhatsApp Check Results</h2>
+    <div id="checkResults"></div>
+  </div>
+
+  <div class="card">
+    <h2>📨 Message Records (auto-refresh every 5 seconds)</h2>
+    <div style="overflow-x: auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Phone</th>
+            <th>Channel</th>
+            <th>Message Preview</th>
+            <th>Status</th>
+            <th>Error</th>
+          </tr>
+        </thead>
+        <tbody id="msgTable">
+          <tr><td colspan="6" class="empty">No records yet</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  function getPhones() {
+    return document.getElementById('phones').value
+      .split('\n').map(s => s.trim()).filter(Boolean);
+  }
+
+  function getMessage() {
+    return document.getElementById('message').value.trim();
+  }
+
+  async function sendSms() {
+    const phones = getPhones(), message = getMessage();
+    if (!phones.length) return alert('Please enter at least one number');
+    if (!message) return alert('Please enter message content');
+
+    const res = await fetch('/api/send-sms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phones, message })
+    });
+    const data = await res.json();
+    alert(`SMS sending completed: ${data.results?.filter(r => r.status === 'sent').length || 0} succeeded`);
+    loadMessages();
+  }
+
+  async function sendWhatsApp() {
+    const phones = getPhones(), message = getMessage();
+    if (!phones.length) return alert('Please enter at least one number');
+    if (!message) return alert('Please enter message content');
+
+    if (!confirm('Confirm: Recipients have given explicit consent to receive WhatsApp messages?')) return;
+
+    const res = await fetch('/api/send-whatsapp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phones, message })
+    });
+    const data = await res.json();
+    alert(`WhatsApp request completed: ${data.results?.filter(r => r.status === 'accepted').length || 0} accepted (actual delivery status will be updated via webhook)`);
+    loadMessages();
+  }
+
+  async function checkWhatsApp() {
+    const phones = getPhones();
+    if (!phones.length) return alert('Please enter at least one number');
+
+    document.getElementById('checkCard').style.display = 'block';
+    const container = document.getElementById('checkResults');
+    container.innerHTML = '<p>Checking...</p>';
+
+    const res = await fetch('/api/check-whatsapp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phones })
+    });
+    const data = await res.json();
+
+    container.innerHTML = data.results.map(r => {
+      let label = '⚠️ Unknown';
+      let cls = '';
+      if (r.exists === true) { label = '✅ On WhatsApp'; cls = 'status-sent'; }
+      else if (r.exists === false) { label = '❌ Not on WhatsApp'; cls = 'status-failed'; }
+      return `<div style="padding:4px 0;border-bottom:1px solid #f0f0f0;">
+        <span>${r.phone}</span>
+        <span class="${cls}" style="float:right;">${label}</span>
+        ${r.error ? `<span style="font-size:11px;color:#999;"> (${r.error})</span>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  async function loadMessages() {
+    try {
+      const res = await fetch('/api/messages');
+      const data = await res.json();
+      const tbody = document.getElementById('msgTable');
+
+      if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty">No records yet</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = data.map(m => {
+        const statusClass = 'status-' + (m.status || 'unknown');
+        const badge = m.channel === 'SMS'
+          ? '<span class="badge badge-sms">SMS</span>'
+          : '<span class="badge badge-wa">WhatsApp</span>';
+        const time = new Date(m.timestamp).toLocaleTimeString();
+        return `<tr>
+          <td>${time}</td>
+          <td>${m.phone}</td>
+          <td>${badge}</td>
+          <td>${m.message}...</td>
+          <td class="${statusClass}">${m.status}</td>
+          <td style="font-size:12px;color:#dc3545;">${m.error || ''}</td>
+        </tr>`;
+      }).join('');
+    } catch (e) {
+      console.error('Failed to load messages', e);
+    }
+  }
+
+  loadMessages();
+  setInterval(loadMessages, 5000);
+</script>
+</body>
+</html>
